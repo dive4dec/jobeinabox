@@ -87,3 +87,25 @@ HEALTHCHECK --interval=5m --timeout=2s \
 
 # Start apache
 CMD ["/usr/sbin/apache2ctl", "-D", "FOREGROUND"]
+
+
+#install miniconda
+RUN apt-get update && \
+    apt-get install -y wget
+
+ENV CONDA_PATH /opt/conda
+RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh && \
+     /bin/bash ~/miniconda.sh -b -p /opt/conda
+ENV PATH=$CONDA_PATH/bin:$PATH
+
+RUN conda init bash && \
+    . activate
+
+#install pakages to virtual env
+RUN conda create -n py310 python=3.10 && \
+    conda install -n py310 numpy -y && \ 
+    conda install -n py310 pandas -y
+
+#Modify source code
+RUN echo '$config'"['python3_version'] = '/opt/conda/envs/py310/bin/python3';" >> /var/www/html/jobe/application/config/config.php
+RUN sed -i 's\/usr/bin/\\' /var/www/html/jobe/application/libraries/python3_task.php
