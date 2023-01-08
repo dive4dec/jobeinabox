@@ -55,10 +55,12 @@ RUN ln -snf /usr/share/zoneinfo/"$TZ" /etc/localtime && \
         sqlite3 \
         sudo \
         tzdata \
-        unzip && \
-    python3 -m pip install pylint && \
-    pylint --reports=no --score=n --generate-rcfile > /etc/pylintrc && \
-    ln -sf /proc/self/fd/1 /var/log/apache2/access.log && \
+        unzip
+        #unzip && \
+    #python3 -m pip install pylint && \
+    #pylint --reports=no --score=n --generate-rcfile > /etc/pylintrc && \
+
+RUN ln -sf /proc/self/fd/1 /var/log/apache2/access.log && \
     ln -sf /proc/self/fd/1 /var/log/apache2/error.log && \
     sed -i "s/export LANG=C/export LANG=$LANG/" /etc/apache2/envvars && \
     sed -i '1 i ServerName localhost' /etc/apache2/apache2.conf && \
