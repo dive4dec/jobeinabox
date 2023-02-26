@@ -2,8 +2,10 @@
 # With thanks to David Bowes (d.h.bowes@lancaster.ac.uk) who did all the hard work
 # on this originally.
 
-FROM docker.io/ubuntu:22.04
+#FROM docker.io/ubuntu:22.04
+FROM jupyter/scipy-notebook
 
+USER root
 # https://github.com/opencontainers/image-spec/blob/master/annotations.md
 LABEL \
     org.opencontainers.image.authors="richard.lobb@canterbury.ac.nz,j.hoedjes@hva.nl,d.h.bowes@herts.ac.uk" \
@@ -12,7 +14,6 @@ LABEL \
     org.opencontainers.image.documentation="https://github.com/trampgeek/jobeinabox" \
     org.opencontainers.image.source="https://github.com/trampgeek/jobeinabox"
 
-ARG TZ=Pacific/Auckland
 # Set up the (apache) environment variables
 ENV APACHE_RUN_USER www-data
 ENV APACHE_RUN_GROUP www-data
@@ -33,9 +34,7 @@ COPY container-test.sh /
 # Configure php
 # Get and install jobe
 # Clean up
-RUN ln -snf /usr/share/zoneinfo/"$TZ" /etc/localtime && \
-    echo "$TZ" > /etc/timezone && \
-    apt-get update && \
+RUN apt-get update && \
     apt-get --no-install-recommends install -yq \
         acl \
         apache2 \
@@ -49,9 +48,9 @@ RUN ln -snf /usr/share/zoneinfo/"$TZ" /etc/localtime && \
         php \
         php-cli \
         php-mbstring \
-        python3 \
-        python3-pip \
-        python3-setuptools \
+        # python3 \
+        # python3-pip \
+        # python3-setuptools \
         sqlite3 \
         sudo \
         tzdata \
@@ -92,22 +91,35 @@ CMD ["/usr/sbin/apache2ctl", "-D", "FOREGROUND"]
 
 
 #install miniconda
-RUN apt-get update && \
-    apt-get install -y wget
+RUN apt update -y && \
+    apt upgrade -y && \
+    apt install -y vim && \
+    apt install -y libcap2-bin procps
+    #apt install -y wget
 
-ENV CONDA_PATH /opt/conda
-RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh && \
-     /bin/bash ~/miniconda.sh -b -p /opt/conda
-ENV PATH=$CONDA_PATH/bin:$PATH
+# ENV CONDA_PATH /opt/conda
+# RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh && \
+#      /bin/bash ~/miniconda.sh -b -p /opt/conda
+# ENV PATH=$CONDA_PATH/bin:$PATH
 
-RUN conda init bash && \
-    . activate
+# RUN conda init bash && \
+#     . activate
 
-#install pakages to virtual env
-RUN conda create -n py310 python=3.10 && \
-    conda install -n py310 numpy -y && \ 
-    conda install -n py310 pandas -y
+# #install pakages to virtual env
+# RUN conda create -n py310 python=3.10 && \
+#     conda install -n py310 numpy -y && \ 
+#     conda install -n py310 pandas -y
 
-#Modify source code
-RUN echo '$config'"['python3_version'] = '/opt/conda/envs/py310/bin/python3';" >> /var/www/html/jobe/application/config/config.php
+RUN setcap 'cap_net_bind_service=+ep' /usr/sbin/apache2 \
+    && setcap 'cap_net_bind_service=+ep' /usr/sbin/apache2ctl \
+    && chown -R www-data:www-data /var/log/apache2 /var/run/apache2 \
+    && usermod -a -G ${NB_GID} www-data
+
+#Use conda python location
+RUN echo '$config'"['python3_version'] = '${CONDA_DIR}/bin/python3';" >> /var/www/html/jobe/application/config/config.php
 RUN sed -i 's\/usr/bin/\\' /var/www/html/jobe/application/libraries/python3_task.php
+
+#Expand memory limit
+RUN sed -i 's\600\6000\' /var/www/html/jobe/application/libraries/python3_task.php 
+
+USER www-data
